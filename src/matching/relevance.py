@@ -96,7 +96,15 @@ OR is facility operations/maintenance at a site where DLP marking is plausible \
 is not stated. When in doubt, answer MAYBE — missing a real opportunity is worse than \
 flagging a borderline one.
 - NO: tender is exclusively out-of-scope with no plausible DLP marking/sign angle \
-(including washing/sweeping-only tenders).\
+(including washing/sweeping-only tenders).
+- For any MAYBE, the REASON field must state WHY it's a maybe, using one of these tags \
+at the start of the reason (this lets indirect leads be triaged separately from \
+confirmed-scope matches):
+    [DIRECT] — DLP marking/sign/court/floor work is explicitly present.
+    [INFERRED] — marking is likely a bundled/sub-scope but NOT explicitly stated \
+(e.g. resurfacing, road/lot rehab). Likely an indirect/subcontract lead, not a direct bid.
+    [FACILITY] — flagged on facility signal (transit depot, PW yard, garage, school, \
+sportsplex) without explicit marking scope.\
 """
 
 _USER_TEMPLATE = """\
@@ -117,7 +125,8 @@ Answer with:
 DECISION: yes / no / maybe
 REASON: one sentence (max 20 words) naming the DLP scope you identified (e.g. \
 parking-lot striping, sign install, court marking) — only include this line if \
-DECISION is yes or maybe\
+DECISION is yes or maybe. For a MAYBE, begin the reason with the \
+[DIRECT] / [INFERRED] / [FACILITY] tag defined in the decision rules.\
 """
 
 
