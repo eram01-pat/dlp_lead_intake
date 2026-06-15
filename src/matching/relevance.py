@@ -74,6 +74,12 @@ of washing or sweeping must NEVER by itself push the answer to NO.
 OUT OF SCOPE — answer NO if the tender is exclusively about:
 - Interior wall / building / house painting (painting structures, not pavement or \
 floor markings)
+- Interior building renovation or construction whose scope is building trades — \
+washrooms, roofing, HVAC, plumbing, electrical, drywall, windows, doors, \
+flooring/carpet, egress/accessibility interior work, or auditorium/room fit-out. This \
+is NOT in scope even at a municipal, school, park, or recreation facility, UNLESS the \
+tender also includes parking-lot striping, exterior/pavement marking, sports-court or \
+gym-floor line marking, or playground/surface marking.
 - Fine-art, mural, or decorative artwork painting that is not pavement/surface marking
 - "Line painting" used in a graphic-design / artwork / printing sense (not pavement)
 - Snow removal or snow plowing
@@ -93,10 +99,12 @@ DECISION RULES:
 - MAYBE: the tender is vague, bundles DLP work with out-of-scope work, OR is a \
 pavement/road project where marking is commonly a sub-scope but not explicitly \
 stated — e.g. asphalt resurfacing, road rehabilitation, parking-lot rehabilitation — \
-OR is facility operations/maintenance at a site where DLP marking is plausible \
-(transit depot, public works yard, parking garage, school, sportsplex) but the scope \
-is not stated. When in doubt, answer MAYBE — missing a real opportunity is worse than \
-flagging a borderline one.
+OR is facility operations/maintenance, grounds, parking, court, or floor work at a \
+site where DLP marking is plausible (transit depot, public works yard, parking garage, \
+school, sportsplex) but the exact scope is not stated — this does NOT include interior \
+building renovations (washrooms, roofing, HVAC, egress, etc.; see OUT OF SCOPE). When \
+in doubt about a genuine marking angle, answer MAYBE — missing a real opportunity is \
+worse than flagging a borderline one.
 - NO: tender is exclusively out-of-scope with no plausible DLP marking/sign angle \
 (including washing/sweeping-only tenders).
 - For any MAYBE, the REASON field must state WHY it's a maybe, using one of these tags \
@@ -105,8 +113,10 @@ confirmed-scope matches):
     [DIRECT] — DLP marking/sign/court/floor work is explicitly present.
     [INFERRED] — marking is likely a bundled/sub-scope but NOT explicitly stated \
 (e.g. resurfacing, road/lot rehab). Likely an indirect/subcontract lead, not a direct bid.
-    [FACILITY] — flagged on facility signal (transit depot, PW yard, garage, school, \
-sportsplex) without explicit marking scope.\
+    [FACILITY] — flagged on a facility signal (transit depot, PW yard, garage, school, \
+sportsplex) with a plausible parking / court / floor / playground / exterior marking \
+angle, but no explicit marking scope. Do NOT use [FACILITY] for interior building \
+renovations (washrooms, roofing, HVAC, egress) — those are NO.\
 """
 
 _USER_TEMPLATE = """\
