@@ -6,8 +6,8 @@ Tier 2 — disambiguate:   hit must pass disqualifiers → Medium confidence
 Tier 3 — broad net:      hit must pass disqualifiers AND LLM says yes (or goes to Review)
 
 Category signals (from <div id="divCat"> on each tender's detail page):
-  - Suppress: bid is in a category that is clearly not CMW scope (Medical, IT, etc.)
-  - Boost:    bid is in a category associated with CMW services (Fleet, Public Works, etc.)
+  - Suppress: bid is in a category that is clearly not DLP scope (Medical, IT, etc.)
+  - Boost:    bid is in a category associated with DLP services (Fleet, Public Works, etc.)
 
 Scoring:
   score = tier_weight + keyword_count * keyword_bonus + category_diversity * cat_bonus
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Confirm and expand after the first production run reveals the full taxonomy.
 
 # A keyword match on a tender in one of these categories is suppressed entirely
-# (regardless of tier) — these are unambiguously not CMW scope.
+# (regardless of tier) — these are unambiguously not DLP scope.
 _CATEGORY_SUPPRESSORS = [
     "medical", "dental", "health service", "health program",
     "pharmaceutical", "nursing", "long term care", "ltc",
@@ -47,13 +47,13 @@ _CATEGORY_SUPPRESSORS = [
 ]
 
 # A tender in one of these categories gets a score bonus — these correlate with
-# CMW services and reduce false positives for Tier-2/3 keyword hits.
+# DLP services and reduce false positives for Tier-2/3 keyword hits.
 _CATEGORY_BOOSTERS = [
     "fleet", "vehicle", "transit", "bus",
     "public works", "roads", "highway", "transportation",
     "facility maintenance", "building maintenance", "maintenance service",
     "cleaning", "janitorial",          # janitorial is normally a disqualifier in text
-    "parking", "garage",               #   but as a category it may contain CMW work
+    "parking", "garage",               #   but as a category it may contain DLP work
     "environmental service",
     "waste", "sanitation",
     "parks", "recreation facility",

@@ -2,7 +2,7 @@
 
 ## Platform Overview
 
-All 17 CMW source municipalities run the **eSolutionsGroup bids&tenders.ca** SaaS platform.
+All 17 DLP source municipalities run the **eSolutionsGroup bids&tenders.ca** SaaS platform.
 One collector handles all 17 sources; only `base_url` differs.
 
 ---
@@ -94,8 +94,8 @@ which are behind a document fee / login wall. We do not download these.
 
 **Consequence: matching is title-only for this platform.**
 
-This is workable because CMW-relevant tenders will have descriptive titles
-("Fleet Washing Services", "Pressure Washing of Transit Facility Exterior", etc.).
+This is workable because DLP-relevant tenders will have descriptive titles
+("Line Painting Services", "Pavement Marking for Municipal Parking Lots", etc.).
 The matching engine is aware of this and operates correctly on titles alone.
 
 `fetch_detail_pages` is disabled by default in `config/settings.yaml` to avoid

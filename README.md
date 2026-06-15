@@ -1,7 +1,7 @@
-# CMW Tender Monitor
+# DLP Tender Monitor
 
-Automated monitor for Canadian Mobile Wash (CMW) that watches 17 Ontario
-municipal procurement portals, matches open tenders against CMW's service
+Automated monitor for Diamond Line Painting (DLP) that watches 17 Ontario
+municipal procurement portals, matches open tenders against DLP's service
 keywords, and publishes a daily dashboard of relevant opportunities.
 
 ## What it does
@@ -23,8 +23,8 @@ keywords, and publishes a daily dashboard of relevant opportunities.
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/eram01-pat/cmw_lead_intake.git
-cd cmw_lead_intake
+git clone https://github.com/eram01-pat/dlp_lead_intake.git
+cd dlp_lead_intake
 pip install -r requirements.txt
 playwright install chromium
 ```
@@ -72,7 +72,7 @@ python pipeline.py --dry-run
 |-----------------------------|--------------------------------------------------------------|
 | `config/sources.yaml`       | Add/remove a municipality (one-line change)                  |
 | `config/keywords.yaml`      | Edit tiers, categories, or add keywords                      |
-| `config/disqualifiers.yaml` | Add/remove negative terms; confirm with CMW before changing  |
+| `config/disqualifiers.yaml` | Add/remove negative terms; confirm with DLP before changing  |
 | `config/settings.yaml`      | Rate limits, LLM toggle, confidence thresholds               |
 
 ### Adding a municipality
