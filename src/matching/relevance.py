@@ -50,6 +50,8 @@ Public road / infrastructure marking:
 - Road and lane markings, crosswalks (including artistic / piano crosswalks)
 - Speed bumps, bike lanes, residential road markings, pedestrian walkways
 - Airport / ferry markings (scope-dependent)
+- Thermoplastic / durable / waterborne pavement markings, longitudinal and \
+transverse markings, traffic-control pavement markings, line removal/grinding
 
 Adjacent pavement work:
 - Seal coating, crack repair, pavement maintenance
