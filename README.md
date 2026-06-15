@@ -1,14 +1,18 @@
-# CMW Tender Monitor
+# DLP Tender Monitor
 
-Automated monitor for Canadian Mobile Wash (CMW) that watches 17 Ontario
-municipal procurement portals, matches open tenders against CMW's service
-keywords, and publishes a daily dashboard of relevant opportunities.
+Automated monitor for Diamond Line Painting (DLP) that watches 17 Ontario
+municipal procurement portals, adjudicates each open tender for relevance to
+DLP's services, and publishes a daily dashboard of relevant opportunities.
 
 ## What it does
 
 1. **Collects** open tenders from 17 bids&tenders.ca portals (all same platform — one collector)
-2. **Matches** tenders against a tiered keyword library with disqualifier filtering
+2. **Adjudicates** every new tender once with Claude (`src/matching/relevance.py`) → `yes` / `no` / `maybe`
 3. **Publishes** a static HTML dashboard to GitHub Pages — no server required
+
+> **Architecture note:** relevance is decided entirely by the Claude adjudication
+> prompt in `src/matching/relevance.py`. There is no keyword pre-filter — that prompt
+> is the whole relevance engine. Edit it to change what counts as in-scope.
 
 ## What it does NOT do
 
@@ -23,44 +27,38 @@ keywords, and publishes a daily dashboard of relevant opportunities.
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/eram01-pat/cmw_lead_intake.git
-cd cmw_lead_intake
+git clone https://github.com/eram01-pat/dlp_lead_intake.git
+cd dlp_lead_intake
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 2. Add the keyword file
+### 2. Configure GitHub Secrets / environment variables
 
-Commit `data/CMW_Tender_Keywords.xlsx` (single column of keywords, provided by CMW).
-Then generate/merge into `config/keywords.yaml`:
+These are the only environment variables the code reads:
 
-```bash
-python scripts/generate_keywords.py
-```
+| Secret / env var    | Required | Read by | Purpose                                                    |
+|---------------------|----------|---------|------------------------------------------------------------|
+| `DATABASE_URL`      | **Yes**  | `src/storage/db.py` | Neon (Postgres) connection string. Pipeline crashes without it. |
+| `ANTHROPIC_API_KEY` | **Yes**\*| `src/matching/relevance.py` | Claude key for the adjudication pass. Without it every tender returns no decision and the dashboard is empty. |
+| `SLACK_WEBHOOK_URL` | No       | `src/notifications/slack.py` | Slack alerts + weekly report. Skipped silently if unset. |
 
-Review any `AUTO-ADDED` entries in `config/keywords.yaml` and set the correct `tier`
-and `category` for each. See the tier definitions in `config/keywords.yaml`.
+\* Optional in code (calls are guarded), but the pipeline produces nothing useful without it — treat as required.
 
-### 3. Configure GitHub Secrets
-
-| Secret              | Required | Purpose                                |
-|---------------------|----------|----------------------------------------|
-| `ANTHROPIC_API_KEY` | Optional | Enables LLM relevance pass for Tier-2/3 |
-
-### 4. Enable GitHub Pages
+### 3. Enable GitHub Pages
 
 In repository Settings → Pages → Source: **GitHub Actions**.
 
-### 5. Run manually
+### 4. Run manually
 
 ```bash
-# Full run (collects, matches, builds dashboard)
+# Full run (collect, adjudicate, build dashboard)
 python pipeline.py
 
 # Single source (for testing/debugging)
 python pipeline.py --source vaughan
 
-# Dry run (no DB writes, logs matches to stdout)
+# Dry run (no DB writes; adjudicates and logs matches to stdout — still calls the Anthropic API)
 python pipeline.py --dry-run
 ```
 
@@ -68,12 +66,11 @@ python pipeline.py --dry-run
 
 ## Configuration
 
-| File                        | What to edit                                                 |
-|-----------------------------|--------------------------------------------------------------|
-| `config/sources.yaml`       | Add/remove a municipality (one-line change)                  |
-| `config/keywords.yaml`      | Edit tiers, categories, or add keywords                      |
-| `config/disqualifiers.yaml` | Add/remove negative terms; confirm with CMW before changing  |
-| `config/settings.yaml`      | Rate limits, LLM toggle, confidence thresholds               |
+| File                          | What to edit                                                 |
+|-------------------------------|--------------------------------------------------------------|
+| `config/sources.yaml`         | Add/remove a municipality (one-line change)                  |
+| `config/settings.yaml`        | Rate limits, LLM model/toggle                                |
+| `src/matching/relevance.py`   | The adjudication prompt — what counts as in-scope (see below) |
 
 ### Adding a municipality
 
@@ -83,42 +80,49 @@ Edit `config/sources.yaml` — add one line:
 ```
 That's all. The collector handles it automatically.
 
-### Tuning the matcher
+### Tuning relevance
 
-Keywords are tagged with:
-- **tier**: 1 (high-precision, auto-flag), 2 (disambiguate), 3 (broad-net, Review bucket)
-- **category**: 1–6 (fleet, parkade, pressure-wash, graffiti, industrial, umbrella)
+Relevance is decided by the `_SYSTEM_PROMPT` / `_USER_TEMPLATE` in
+`src/matching/relevance.py`. The prompt returns `yes` / `no` / `maybe` for each tender.
 
-**If the dashboard is too noisy:** move keywords to a higher tier or add disqualifiers.
-**If real opportunities are being missed:** move keywords to a lower tier or add variants.
+**If the dashboard is too noisy:** tighten the OUT-OF-SCOPE rules in the prompt.
+**If real opportunities are being missed:** broaden the in-scope service list or the
+MAYBE rule.
 
 ---
 
 ## State persistence
 
-**v1 choice:** `data/tenders.db` (SQLite) is committed back to the repo after each run.
+State lives in **Neon (Postgres)**, reached via the `DATABASE_URL` environment
+variable (`src/storage/db.py`). The `tenders` table stores each tender plus its
+cached `llm_decision` (`yes` / `no` / `maybe`) — there is no separate matches table;
+the decision on the row *is* the match record. The dashboard and weekly report query
+this table directly.
 
-Tradeoff: ~17 noisy commits/week (tagged `[skip ci]`), but zero extra infrastructure and
-full history. The schema is designed so a later move to Postgres is a connection-string
-change in `src/storage/db.py`.
-
-**Phase-2 alternative:** restore/store the DB as a GitHub Actions artifact or use the
-Actions cache — removes the commit noise but loses the history outside of artifacts.
+Each tender is adjudicated by Claude exactly once; the decision is cached so repeat
+runs don't re-spend API calls on tenders already seen.
 
 ---
 
-## LLM relevance pass (optional)
+## Relevance engine (Claude)
 
-Set `llm.enabled: true` in `config/settings.yaml` and provide `ANTHROPIC_API_KEY`.
+Relevance is decided by a single Claude call per new tender in
+`src/matching/relevance.py` (`adjudicate()`), configured under `llm:` in
+`config/settings.yaml` (model + max tokens). It runs on **every** new tender — there
+is no keyword pre-filter.
 
-The LLM pass only runs on Tier-2 and Tier-3 candidates (never every tender) to keep
-cost bounded. It asks Claude whether exterior/fleet/pressure washing is plausibly in
-scope for the tender, and uses the answer to confirm/downgrade ambiguous matches.
+The prompt asks whether the tender is plausibly in scope for Diamond Line Painting's
+services (line painting, pavement marking, sign installation, warehouse/floor marking,
+playground/school-yard, sports-court & field marking, public-road marking, and adjacent
+pavement work) and returns:
+- `yes` → High confidence (main feed)
+- `maybe` → Medium confidence (main feed)
+- `no` → dropped
 
-With the LLM disabled:
-- Tier-1 hits → High confidence (unchanged)
-- Tier-2 hits → Medium confidence (pass disqualifiers)
-- Tier-3-only hits → Review bucket (never main feed)
+> Diamond does **not** self-perform power washing / pressure washing / sweeping (that is
+> a separate company, CMW). A washing-only tender is `no`. A tender that bundles Diamond
+> marking/striping/sign/court/floor work *with* washing or sweeping is still relevant —
+> the washing mention alone never forces a `no`.
 
 ---
 
@@ -136,7 +140,7 @@ is passed in CI).
 ## Phase-2 upgrade paths (not built in v1)
 
 - **Interactive dashboard**: mark tenders reviewed/dismissed, shared state across
-  team — requires a small backend (FastAPI) + persistent DB (Postgres)
+  team — requires a small backend (FastAPI) over the existing Neon DB
 - **Email digest**: daily summary of High/Medium matches — thin add-on over same data
 - **LLM detail-page enrichment**: fetch tender detail pages for tenders that only had
   a listing-level description

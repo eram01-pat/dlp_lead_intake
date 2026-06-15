@@ -1,5 +1,5 @@
 """
-CMW Weekly Tender Report — posts a Friday summary to Slack.
+DLP Weekly Tender Report — posts a Friday summary to Slack.
 
 Run:
   python weekly_report.py
