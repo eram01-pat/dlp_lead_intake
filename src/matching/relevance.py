@@ -94,6 +94,14 @@ do not exclude it.)
 they cover marking, striping, sign, or related application SERVICES. Exclude only \
 standing offers for the supply of goods with no application work.
 
+BID CATEGORIES CAN BE NOISE: some agencies staple a large boilerplate category list \
+(roughly 10+ categories) onto every construction tender. When the category list is \
+long and generic, treat it as unreliable and decide primarily from the TITLE and \
+DESCRIPTION. Do NOT infer a marking angle from categories such as "Traffic \
+Signalization", "Roads", "Sidewalks", or "speed signs" when the title/description is \
+clearly about something else (e.g. refrigeration, HVAC, roofing, washrooms). A SHORT, \
+focused category list is a real signal; a long catch-all list is not.
+
 DECISION RULES:
 - YES: tender clearly involves one or more DLP services listed above.
 - MAYBE: the tender is vague, bundles DLP work with out-of-scope work, OR is a \
@@ -129,7 +137,8 @@ Bid categories: {categories}
 
 Note: bids&tenders descriptions are usually boilerplate ("Only Online Submissions \
 will be Accepted"). If the description is empty or uninformative, base your decision \
-on the title and bid categories alone.
+on the title and bid categories alone — but if the category list is long and generic \
+(a boilerplate dump), rely on the title and ignore the category noise.
 
 Could Diamond Line Painting plausibly bid on this tender (for its marking / striping / \
 sign / floor / court scope)?
