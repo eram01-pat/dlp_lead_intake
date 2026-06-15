@@ -90,6 +90,11 @@ vehicles where DLP would perform NO application or installation. (If the tender 
 "supply AND apply", "supply and install", or a services contract, it is IN scope — \
 do not exclude it.)
 - Design, engineering, or consulting services
+- "Notice of Planned Procurements", procurement forecasts, or informational-only \
+notices that are NOT an open biddable solicitation — answer NO even if the category \
+list mentions pavement markings or traffic paint. These just announce work the agency \
+plans to tender later; the actual procurements are posted separately and will be \
+evaluated on their own.
 - Standing offers / vendor-of-record / multi-year service agreements are IN scope when \
 they cover marking, striping, sign, or related application SERVICES. Exclude only \
 standing offers for the supply of goods with no application work.
