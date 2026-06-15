@@ -1,0 +1,18 @@
+sources:
+  - {id: vaughan,       name: "City of Vaughan",        base_url: "https://vaughan.bidsandtenders.ca"}
+  - {id: brampton,      name: "City of Brampton",       base_url: "https://brampton.bidsandtenders.ca"}
+  - {id: mississauga,   name: "City of Mississauga",    base_url: "https://mississauga.bidsandtenders.ca"}
+  - {id: whitby,        name: "Town of Whitby",         base_url: "https://whitby.bidsandtenders.ca"}
+  - {id: markham,       name: "City of Markham",        base_url: "https://markham.bidsandtenders.ca"}
+  - {id: burlington,    name: "City of Burlington",     base_url: "https://burlington.bidsandtenders.ca"}
+  - {id: hamilton,      name: "City of Hamilton",       base_url: "https://hamilton.bidsandtenders.ca"}
+  - {id: durham,        name: "Region of Durham",       base_url: "https://durham.bidsandtenders.ca"}
+  - {id: niagarafalls,  name: "City of Niagara Falls",  base_url: "https://niagarafalls.bidsandtenders.ca"}
+  - {id: oakville,      name: "Town of Oakville",       base_url: "https://oakville.bidsandtenders.ca"}
+  - {id: pickering,     name: "City of Pickering",      base_url: "https://pickering.bidsandtenders.ca"}
+  - {id: ajax,          name: "Town of Ajax",           base_url: "https://ajax.bidsandtenders.ca"}
+  - {id: oshawa,        name: "City of Oshawa",         base_url: "https://oshawa.bidsandtenders.ca"}
+  - {id: richmondhill,  name: "City of Richmond Hill",  base_url: "https://richmondhill.bidsandtenders.ca"}
+  - {id: aurora,        name: "Town of Aurora",         base_url: "https://aurora.bidsandtenders.ca"}
+  - {id: newmarket,     name: "Town of Newmarket",      base_url: "https://newmarket.bidsandtenders.ca"}
+  - {id: york,          name: "Region of York",         base_url: "https://york.bidsandtenders.ca"}

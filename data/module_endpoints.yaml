@@ -1,0 +1,26 @@
+# Per-municipality Module GUIDs for the bids&tenders.ca search endpoint.
+# Endpoint pattern: POST {base_url}/Module/Tenders/en/Tender/Search/{guid}
+#
+# Pre-seeded entries are manually verified via browser DevTools.
+# Remaining municipalities are auto-discovered on first run and appended here.
+#
+# To re-discover a GUID (e.g. after a platform migration), delete its entry
+# and the collector will discover it fresh from the listing page.
+
+vaughan:       83b40e99-2f9a-4b20-9444-9cc522b4c6f5  # verified 2026-06-08
+brampton:      1a0b8c31-b337-4cba-b5c4-db8e6c14d026  # verified 2026-06-08
+mississauga:   b8de48c7-ced4-4188-8131-c90498667392  # verified 2026-06-08
+burlington:    0ec6aab8-1fc8-4fdd-8dfb-cd5177063ac0  # verified 2026-06-08
+oakville:      b0174368-d7b1-4767-ad1a-7fdb104e96ec  # verified 2026-06-08
+hamilton:      4e946c24-247c-4a61-b542-7cc5ce8716da  # verified 2026-06-08
+markham:       e2bc884f-ce64-421a-bd35-86cda26e94e1  # verified 2026-06-08
+richmondhill:  4c2eeb31-c11b-4241-98d4-fe28bbe7413c  # verified 2026-06-08
+whitby:        2510a44c-6973-4f8e-a2c3-4610cbfe56df  # verified 2026-06-08
+durham:        7d1f4d88-451d-4d9d-822f-f81a1e92b4d9  # verified 2026-06-08
+oshawa:        175e989c-e829-469c-8aad-02a5bed946d9  # verified 2026-06-08
+pickering:     8334d305-0798-448e-a47b-8ca75c4469b1  # verified 2026-06-08
+ajax:          35e5b61e-5c73-4ede-a8bc-e522d3ec3a14  # verified 2026-06-08
+aurora:        d262caa1-5dde-4943-8369-667c8db4c7a4  # verified 2026-06-08
+newmarket:     4e1140f8-6cd6-41d3-96da-d4bf8b6d58d0  # verified 2026-06-08
+niagarafalls:  63edd222-57d1-4642-89d8-5ee9fafa973b  # verified 2026-06-08
+york:          eb167b72-95d5-4bbc-a85c-0846df5be368  # verified 2026-06-08
