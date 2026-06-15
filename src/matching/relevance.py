@@ -77,11 +77,14 @@ floor markings)
 - Snow removal or snow plowing
 - Landscaping or grounds maintenance
 - Pure washing / pressure washing / sweeping with no marking scope (see above)
-- Supply of goods or equipment only — buying/leasing paint, materials, machines, or \
-vehicles with no application/installation work
+- Supply of goods or equipment ONLY — buying/leasing paint, materials, machines, or \
+vehicles where DLP would perform NO application or installation. (If the tender is \
+"supply AND apply", "supply and install", or a services contract, it is IN scope — \
+do not exclude it.)
 - Design, engineering, or consulting services
-- Cooperative purchasing agreements, standing offers, or vendor-of-record arrangements \
-for goods
+- Standing offers / vendor-of-record / multi-year service agreements are IN scope when \
+they cover marking, striping, sign, or related application SERVICES. Exclude only \
+standing offers for the supply of goods with no application work.
 
 DECISION RULES:
 - YES: tender clearly involves one or more DLP services listed above.
