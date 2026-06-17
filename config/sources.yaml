@@ -31,3 +31,17 @@ sources:
   - {id: dpcdsb,        name: "Dufferin-Peel Catholic DSB",       base_url: "https://dpcdsb.bidsandtenders.ca"}
   - {id: dcdsb,         name: "Durham Catholic DSB",              base_url: "https://dcdsb.bidsandtenders.ca"}
   - {id: hwcdsb,        name: "Hamilton-Wentworth Catholic DSB",  base_url: "https://hwcdsb.bidsandtenders.ca"}
+
+  # ── Regional municipalities (regional arterial roads = lane/crosswalk/ ───────
+  #    thermoplastic marking). York & Durham regions are already listed above.
+  - {id: peelregion,     name: "Region of Peel",      base_url: "https://peelregion.bidsandtenders.ca"}
+  - {id: regionofwaterloo, name: "Region of Waterloo", base_url: "https://regionofwaterloo.bidsandtenders.ca"}
+  - {id: haltonregion,   name: "Region of Halton",    base_url: "https://haltonregion.bidsandtenders.ca"}
+
+  # ── Southwestern-Ontario footprint (Waterloo region + Woodstock/Oxford). ─────
+  #    Note: City of Cambridge is on Bonfire, not bids&tenders, so it's not here.
+  - {id: kitchener,      name: "City of Kitchener",   base_url: "https://kitchener.bidsandtenders.ca"}
+  - {id: waterloo,       name: "City of Waterloo",    base_url: "https://waterloo.bidsandtenders.ca"}
+  - {id: guelph,         name: "City of Guelph",      base_url: "https://guelph.bidsandtenders.ca"}
+  - {id: oxfordcounty,   name: "Oxford County",       base_url: "https://oxfordcounty.bidsandtenders.ca"}
+  - {id: haltonhills,    name: "Town of Halton Hills", base_url: "https://haltonhills.bidsandtenders.ca"}
