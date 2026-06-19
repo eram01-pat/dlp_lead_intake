@@ -182,6 +182,7 @@ def get_weekly_stats(conn: PgConn) -> dict:
             FROM tenders
             WHERE status = 'Open'
               AND llm_decision IN ('yes', 'maybe')
+              AND (closing_date IS NULL OR closing_date >= CURRENT_DATE)
             ORDER BY
                 CASE llm_decision WHEN 'yes' THEN 0 ELSE 1 END,
                 closing_date ASC NULLS LAST
