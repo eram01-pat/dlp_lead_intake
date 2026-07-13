@@ -137,7 +137,7 @@ per-municipality variable is the MODULE_GUID.
 
 | Source ID | Quirk | Resolution |
 |-----------|-------|------------|
-| *(none yet — add here as each site is verified)* | | |
+| york, peelregion | >25 open tenders — page's own AJAX search only returns first 25, so passive capture truncated the list | Collector paginates in-page with `limit=100` / `start` offsets (2026-07-13) |
 
 ---
 
@@ -153,8 +153,14 @@ per-municipality variable is the MODULE_GUID.
 - [x] **Second municipality** — Brampton confirmed 2026-06-08:
       GUID `1a0b8c31-b337-4cba-b5c4-db8e6c14d026`, identical URL structure and params.
       "One collector, 17 sources" design validated.
-- [ ] **Pagination** — find a municipality with >100 open tenders, confirm `start=100`
-      works correctly
+- [x] **Pagination** — confirmed the hard way 2026-07-13: the listing page's own JS
+      searches with a default page size of **25**, and passively capturing that response
+      truncated any source with >25 open tenders (york: 25 of 32, peelregion: 25 of 45 on
+      the 2026-07-10 run — a newly posted York tender was missed because the default sort
+      is DateClosing ASC, pushing far-closing new posts past position 25). The collector
+      now re-runs the search from inside the browser context with `limit=100` and pages
+      via `start` until `total` is reached. Covered by
+      `tests/test_bidsandtenders_pagination.py`.
 - [x] **Detail page content** — description is boilerplate even on detail page;
       real scope is in PDFs. `fetch_detail_pages` disabled by default.
 - [ ] **Bid Classification field** — "Services" / "Goods" / "Construction" appears on

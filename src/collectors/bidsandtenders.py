@@ -103,6 +103,101 @@ def _save_cache(cache: dict) -> None:
 
 # ── Playwright search ─────────────────────────────────────────────────────────
 
+# The listing page's own JS searches with the platform default page size (25),
+# so the passively captured response is only the first page. Once the page is
+# loaded we re-run the search ourselves from inside the browser context (same
+# cookies, CSRF token, and browser fingerprint) with limit=_PAGE_LIMIT, paging
+# `start` until every reported item is fetched.
+_SEARCH_FETCH_JS = """
+async ({ guid, token, start, limit }) => {
+    const params = new URLSearchParams({
+        status: 'Open',
+        limit: String(limit),
+        start: String(start),
+        dir: 'ASC',
+        from: '',
+        to: '',
+        sort: 'DateClosing ASC,Id',
+    });
+    if (token) params.set('__RequestVerificationToken', token);
+    const resp = await fetch(`/Module/Tenders/en/Tender/Search/${guid}?${params.toString()}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: params.toString(),
+        credentials: 'same-origin',
+    });
+    if (!resp.ok) return { error: resp.status };
+    return await resp.json();
+}
+"""
+
+_MAX_START = 2000  # runaway-pagination backstop
+
+
+def _fetch_all_pages_in_browser(page, guid: str, source_id: str) -> Optional[list[dict]]:
+    """
+    Re-run the tender search from inside the loaded page, paging through all
+    results. Returns None if even the first request fails (caller falls back
+    to the passively captured items).
+    """
+    token = ""
+    try:
+        el = page.query_selector('input[name="__RequestVerificationToken"]')
+        if el:
+            token = el.get_attribute("value") or ""
+    except Exception:
+        pass
+
+    items: list[dict] = []
+    start = 0
+    total: Optional[int] = None
+    while True:
+        try:
+            body = page.evaluate(
+                _SEARCH_FETCH_JS,
+                {"guid": guid, "token": token, "start": start, "limit": _PAGE_LIMIT},
+            )
+        except Exception as exc:
+            logger.warning("%s: in-page search fetch failed at start=%d: %s", source_id, start, exc)
+            return None if start == 0 else items
+        if not isinstance(body, dict) or body.get("error"):
+            logger.warning(
+                "%s: in-page search returned error at start=%d: %s",
+                source_id, start, body.get("error") if isinstance(body, dict) else body,
+            )
+            return None if start == 0 else items
+        batch = body.get("data") or []
+        items.extend(batch)
+        try:
+            total = int(body.get("total"))
+        except (TypeError, ValueError):
+            pass
+        start += _PAGE_LIMIT
+        if (
+            not batch
+            or len(batch) < _PAGE_LIMIT
+            or (total is not None and len(items) >= total)
+            or start >= _MAX_START
+        ):
+            break
+    return items
+
+
+def _dedupe_by_id(items: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    out: list[dict] = []
+    for it in items:
+        key = str(it.get("Id") or "")
+        if key and key in seen:
+            continue
+        seen.add(key)
+        out.append(it)
+    return out
+
+
 def _fetch_via_playwright(
     base_url: str,
     source_id: str,
@@ -112,12 +207,15 @@ def _fetch_via_playwright(
 ) -> tuple[list[dict], str, dict]:
     """
     Load the listing page in headless Chromium, intercept every AJAX search
-    response, and return (raw_items, module_guid, cookies_dict).
+    response, then re-run the search in-page with pagination so sources with
+    more open tenders than the default page size (25) are fully collected.
+    Returns (raw_items, module_guid, cookies_dict).
     """
     from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
     all_items: list[dict] = []
     guid_found: list[str] = []
+    totals_reported: list[int] = []
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
@@ -134,6 +232,10 @@ def _fetch_via_playwright(
                 try:
                     body = response.json()
                     items = body.get("data") or []
+                    try:
+                        totals_reported.append(int(body.get("total")))
+                    except (TypeError, ValueError):
+                        pass
                     if items:
                         all_items.extend(items)
                         logger.info(
@@ -155,10 +257,42 @@ def _fetch_via_playwright(
         except PWTimeout:
             logger.warning("%s: page load timed out — using whatever was captured", source_id)
 
+        guid = guid_found[0] if guid_found else ""
+        if not guid:
+            try:
+                guid = _extract_module_guid(page.content()) or ""
+            except Exception:
+                pass
+
+        total_reported = max(totals_reported) if totals_reported else None
+
+        # Paginate whenever we have a GUID, unless the passive capture already
+        # provably got everything.
+        if guid and not (total_reported is not None and len(all_items) >= total_reported):
+            page.remove_listener("response", on_response)
+            paged = _fetch_all_pages_in_browser(page, guid, source_id)
+            if paged is not None and len(paged) >= len(all_items):
+                logger.info(
+                    "%s: paginated search returned %d items (passive capture: %d)",
+                    source_id, len(paged), len(all_items),
+                )
+                all_items = paged
+            else:
+                logger.warning(
+                    "%s: paginated search unusable — keeping %d passively captured items",
+                    source_id, len(all_items),
+                )
+
         pw_cookies = {c["name"]: c["value"] for c in ctx.cookies()}
         browser.close()
 
-    guid = guid_found[0] if guid_found else ""
+    all_items = _dedupe_by_id(all_items)
+
+    if total_reported is not None and len(all_items) < total_reported:
+        logger.warning(
+            "%s: collected only %d of %d reported open tenders — some are being missed",
+            source_id, len(all_items), total_reported,
+        )
 
     if max_per_source and len(all_items) > max_per_source:
         all_items = all_items[:max_per_source]
