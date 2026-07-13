@@ -105,43 +105,49 @@ def _save_cache(cache: dict) -> None:
 
 # The listing page's own JS searches with the platform default page size (25),
 # so the passively captured response is only the first page. Once the page is
-# loaded we re-run the search ourselves from inside the browser context (same
-# cookies, CSRF token, and browser fingerprint) with limit=_PAGE_LIMIT, paging
-# `start` until every reported item is fetched.
-_SEARCH_FETCH_JS = """
-async ({ guid, token, start, limit }) => {
-    const params = new URLSearchParams({
-        status: 'Open',
-        limit: String(limit),
-        start: String(start),
-        dir: 'ASC',
-        from: '',
-        to: '',
-        sort: 'DateClosing ASC,Id',
-    });
-    if (token) params.set('__RequestVerificationToken', token);
-    const resp = await fetch(`/Module/Tenders/en/Tender/Search/${guid}?${params.toString()}`, {
+# loaded we replay the exact search request the page itself made (same URL,
+# body, content type, cookies, and browser fingerprint) with only start/limit
+# rewritten, paging until every reported item is fetched. Replaying the page's
+# own request verbatim matters: a hand-reconstructed request was answered with
+# an HTML error page by the live site (york, 2026-07-13) even though the
+# documented parameter set was used.
+_PAGED_FETCH_JS = """
+async ({ url, body, contentType }) => {
+    const resp = await fetch(url, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Content-Type': contentType,
             'X-Requested-With': 'XMLHttpRequest',
         },
-        body: params.toString(),
+        body: body,
         credentials: 'same-origin',
     });
-    if (!resp.ok) return { error: resp.status };
-    return await resp.json();
+    const text = await resp.text();
+    try {
+        return { status: resp.status, json: JSON.parse(text) };
+    } catch (e) {
+        return { status: resp.status, snippet: text.slice(0, 300) };
+    }
 }
 """
 
 _MAX_START = 2000  # runaway-pagination backstop
 
 
-def _fetch_all_pages_in_browser(page, guid: str, source_id: str) -> Optional[list[dict]]:
+def _with_paging(form_encoded: str, start: int, limit: int) -> str:
+    """Rewrite start/limit in a form-encoded parameter string, keeping the rest."""
+    from urllib.parse import parse_qsl, urlencode
+    pairs = dict(parse_qsl(form_encoded, keep_blank_values=True))
+    pairs["start"] = str(start)
+    pairs["limit"] = str(limit)
+    return urlencode(pairs)
+
+
+def _build_fallback_search_req(page, guid: str) -> dict:
     """
-    Re-run the tender search from inside the loaded page, paging through all
-    results. Returns None if even the first request fails (caller falls back
-    to the passively captured items).
+    Hand-built search request for pages where no search POST was captured
+    (per ACCESS_NOTES.md — known to be rejected by at least york, so this is
+    only a fallback when there is nothing to replay).
     """
     token = ""
     try:
@@ -150,29 +156,58 @@ def _fetch_all_pages_in_browser(page, guid: str, source_id: str) -> Optional[lis
             token = el.get_attribute("value") or ""
     except Exception:
         pass
+    params = [
+        ("status", "Open"), ("limit", str(_PAGE_LIMIT)), ("start", "0"),
+        ("dir", "ASC"), ("from", ""), ("to", ""), ("sort", "DateClosing ASC,Id"),
+    ]
+    if token:
+        params.append(("__RequestVerificationToken", token))
+    from urllib.parse import urlencode
+    body = urlencode(params)
+    return {
+        "url": f"{_LISTING_PATH}/Tender/Search/{guid}?{body}",
+        "body": body,
+        "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+    }
+
+
+def _fetch_all_pages_in_browser(page, search_req: dict, source_id: str) -> Optional[list[dict]]:
+    """
+    Replay the captured search request from inside the loaded page, paging
+    through all results. Returns None if even the first request fails (caller
+    falls back to the passively captured items).
+    """
+    base, _, query = search_req["url"].partition("?")
+    body_template = search_req.get("body") or ""
+    content_type = search_req.get("content_type") or "application/x-www-form-urlencoded; charset=UTF-8"
 
     items: list[dict] = []
     start = 0
     total: Optional[int] = None
     while True:
+        url = base + ("?" + _with_paging(query, start, _PAGE_LIMIT) if query else "")
+        body = _with_paging(body_template, start, _PAGE_LIMIT) if body_template else ""
         try:
-            body = page.evaluate(
-                _SEARCH_FETCH_JS,
-                {"guid": guid, "token": token, "start": start, "limit": _PAGE_LIMIT},
+            result = page.evaluate(
+                _PAGED_FETCH_JS,
+                {"url": url, "body": body, "contentType": content_type},
             )
         except Exception as exc:
             logger.warning("%s: in-page search fetch failed at start=%d: %s", source_id, start, exc)
             return None if start == 0 else items
-        if not isinstance(body, dict) or body.get("error"):
+        payload = result.get("json") if isinstance(result, dict) else None
+        if not isinstance(payload, dict) or int(result.get("status") or 0) >= 400:
+            status = result.get("status") if isinstance(result, dict) else "?"
+            snippet = (result.get("snippet") or "")[:200] if isinstance(result, dict) else repr(result)[:200]
             logger.warning(
-                "%s: in-page search returned error at start=%d: %s",
-                source_id, start, body.get("error") if isinstance(body, dict) else body,
+                "%s: in-page search at start=%d returned non-JSON/HTTP %s: %r",
+                source_id, start, status, snippet,
             )
             return None if start == 0 else items
-        batch = body.get("data") or []
+        batch = payload.get("data") or []
         items.extend(batch)
         try:
-            total = int(body.get("total"))
+            total = int(payload.get("total"))
         except (TypeError, ValueError):
             pass
         start += _PAGE_LIMIT
@@ -216,6 +251,7 @@ def _fetch_via_playwright(
     all_items: list[dict] = []
     guid_found: list[str] = []
     totals_reported: list[int] = []
+    captured_req: list[dict] = []
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
@@ -236,6 +272,17 @@ def _fetch_via_playwright(
                         totals_reported.append(int(body.get("total")))
                     except (TypeError, ValueError):
                         pass
+                    # Keep the page's own request as a replay template for
+                    # pagination — this one demonstrably works.
+                    if not captured_req:
+                        try:
+                            captured_req.append({
+                                "url": url,
+                                "body": response.request.post_data or "",
+                                "content_type": response.request.headers.get("content-type", ""),
+                            })
+                        except Exception:
+                            pass
                     if items:
                         all_items.extend(items)
                         logger.info(
@@ -266,11 +313,14 @@ def _fetch_via_playwright(
 
         total_reported = max(totals_reported) if totals_reported else None
 
-        # Paginate whenever we have a GUID, unless the passive capture already
-        # provably got everything.
-        if guid and not (total_reported is not None and len(all_items) >= total_reported):
+        # Paginate whenever we have a request to replay (or at least a GUID),
+        # unless the passive capture already provably got everything.
+        search_req = captured_req[0] if captured_req else (
+            _build_fallback_search_req(page, guid) if guid else None
+        )
+        if search_req and not (total_reported is not None and len(all_items) >= total_reported):
             page.remove_listener("response", on_response)
-            paged = _fetch_all_pages_in_browser(page, guid, source_id)
+            paged = _fetch_all_pages_in_browser(page, search_req, source_id)
             if paged is not None and len(paged) >= len(all_items):
                 logger.info(
                     "%s: paginated search returned %d items (passive capture: %d)",
