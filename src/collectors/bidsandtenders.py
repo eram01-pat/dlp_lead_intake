@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 _LISTING_PATH = "/Module/Tenders/en"
 _DETAIL_PATH  = "/Module/Tenders/en/Tender/Detail"
 _CACHE_FILE   = "data/module_endpoints.yaml"
-_PAGE_LIMIT   = 100
 
 _REF_PREFIX_RE = re.compile(r"^([A-Z]{1,8}\d{2}-\d{2,5}[A-Z]?)\s*[-–]\s*", re.IGNORECASE)
 _GUID_RE       = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
@@ -105,20 +104,19 @@ def _save_cache(cache: dict) -> None:
 
 # The listing page's own JS searches with the platform default page size (25),
 # so the passively captured response is only the first page. Once the page is
-# loaded we replay the exact search request the page itself made (same URL,
-# body, content type, cookies, and browser fingerprint) with only start/limit
-# rewritten, paging until every reported item is fetched. Replaying the page's
-# own request verbatim matters: a hand-reconstructed request was answered with
-# an HTML error page by the live site (york, 2026-07-13) even though the
-# documented parameter set was used.
+# loaded we replay the exact search request the page itself made — byte-
+# identical URL, body, and headers — stepping ONLY the `start` value via
+# textual substitution and keeping the site's own page size. Fidelity matters:
+# the live site (york/peelregion, 2026-07-13) answered both a hand-built
+# request and a re-encoded replay with limit=100 with an HTML error page over
+# HTTP 200. With this approach the first paged request is literally identical
+# to one that just succeeded, so any failure isolates to one-time-token
+# binding rather than request construction.
 _PAGED_FETCH_JS = """
-async ({ url, body, contentType }) => {
+async ({ url, body, headers }) => {
     const resp = await fetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': contentType,
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: headers,
         body: body,
         credentials: 'same-origin',
     });
@@ -131,16 +129,37 @@ async ({ url, body, contentType }) => {
 }
 """
 
-_MAX_START = 2000  # runaway-pagination backstop
+_MAX_START = 2000            # runaway-pagination backstop
+_FALLBACK_PAGE_SIZE = 25     # platform default, used when no limit is visible
+
+# Headers that fetch() forbids or that must not be replayed verbatim; the
+# browser regenerates these itself (cookies come from the page context).
+_UNREPLAYABLE_HEADERS = ("host", "cookie", "content-length", "connection",
+                         "accept-encoding", "origin", "referer", "user-agent")
+
+_START_PARAM_RE = re.compile(r"(^|[?&])start=[^&]*")
+_LIMIT_PARAM_RE = re.compile(r"(?:^|[?&])limit=(\d+)")
 
 
-def _with_paging(form_encoded: str, start: int, limit: int) -> str:
-    """Rewrite start/limit in a form-encoded parameter string, keeping the rest."""
-    from urllib.parse import parse_qsl, urlencode
-    pairs = dict(parse_qsl(form_encoded, keep_blank_values=True))
-    pairs["start"] = str(start)
-    pairs["limit"] = str(limit)
-    return urlencode(pairs)
+def _substitute_start(form_encoded: str, start: int) -> str:
+    """Replace only the start=N value, leaving every other byte untouched."""
+    return _START_PARAM_RE.sub(lambda m: f"{m.group(1)}start={start}", form_encoded)
+
+
+def _page_size_of(search_req: dict) -> int:
+    for part in (search_req.get("body") or "", search_req.get("url") or ""):
+        m = _LIMIT_PARAM_RE.search(part)
+        if m:
+            return max(1, int(m.group(1)))
+    return _FALLBACK_PAGE_SIZE
+
+
+def _replayable_headers(captured: dict) -> dict:
+    return {
+        k: v for k, v in (captured or {}).items()
+        if not k.lower().startswith((":", "sec-", "proxy-"))
+        and k.lower() not in _UNREPLAYABLE_HEADERS
+    }
 
 
 def _build_fallback_search_req(page, guid: str) -> dict:
@@ -157,7 +176,7 @@ def _build_fallback_search_req(page, guid: str) -> dict:
     except Exception:
         pass
     params = [
-        ("status", "Open"), ("limit", str(_PAGE_LIMIT)), ("start", "0"),
+        ("status", "Open"), ("limit", str(_FALLBACK_PAGE_SIZE)), ("start", "0"),
         ("dir", "ASC"), ("from", ""), ("to", ""), ("sort", "DateClosing ASC,Id"),
     ]
     if token:
@@ -167,30 +186,35 @@ def _build_fallback_search_req(page, guid: str) -> dict:
     return {
         "url": f"{_LISTING_PATH}/Tender/Search/{guid}?{body}",
         "body": body,
-        "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "headers": {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+        },
     }
 
 
 def _fetch_all_pages_in_browser(page, search_req: dict, source_id: str) -> Optional[list[dict]]:
     """
-    Replay the captured search request from inside the loaded page, paging
-    through all results. Returns None if even the first request fails (caller
-    falls back to the passively captured items).
+    Replay the captured search request from inside the loaded page, stepping
+    only `start` and paging through all results at the site's own page size.
+    Returns None if even the first request fails (caller falls back to the
+    passively captured items).
     """
-    base, _, query = search_req["url"].partition("?")
+    url_template = search_req["url"]
     body_template = search_req.get("body") or ""
-    content_type = search_req.get("content_type") or "application/x-www-form-urlencoded; charset=UTF-8"
+    headers = _replayable_headers(search_req.get("headers") or {})
+    step = _page_size_of(search_req)
 
     items: list[dict] = []
     start = 0
     total: Optional[int] = None
     while True:
-        url = base + ("?" + _with_paging(query, start, _PAGE_LIMIT) if query else "")
-        body = _with_paging(body_template, start, _PAGE_LIMIT) if body_template else ""
+        url = _substitute_start(url_template, start)
+        body = _substitute_start(body_template, start)
         try:
             result = page.evaluate(
                 _PAGED_FETCH_JS,
-                {"url": url, "body": body, "contentType": content_type},
+                {"url": url, "body": body, "headers": headers},
             )
         except Exception as exc:
             logger.warning("%s: in-page search fetch failed at start=%d: %s", source_id, start, exc)
@@ -210,10 +234,10 @@ def _fetch_all_pages_in_browser(page, search_req: dict, source_id: str) -> Optio
             total = int(payload.get("total"))
         except (TypeError, ValueError):
             pass
-        start += _PAGE_LIMIT
+        start += step
         if (
             not batch
-            or len(batch) < _PAGE_LIMIT
+            or len(batch) < step
             or (total is not None and len(items) >= total)
             or start >= _MAX_START
         ):
@@ -279,7 +303,7 @@ def _fetch_via_playwright(
                             captured_req.append({
                                 "url": url,
                                 "body": response.request.post_data or "",
-                                "content_type": response.request.headers.get("content-type", ""),
+                                "headers": dict(response.request.headers),
                             })
                         except Exception:
                             pass
