@@ -138,6 +138,7 @@ per-municipality variable is the MODULE_GUID.
 | Source ID | Quirk | Resolution |
 |-----------|-------|------------|
 | york, peelregion | >25 open tenders — page's own AJAX search only returns first 25, so passive capture truncated the list | Collector paginates in-page with `limit=100` / `start` offsets (2026-07-13) |
+| york | Search POST hand-built from the documented parameter set (incl. CSRF token) is answered with an HTML error page, HTTP 200 — the page's own request evidently carries extra state | Pagination replays the page's captured request verbatim with only `start`/`limit` rewritten (2026-07-13) |
 
 ---
 

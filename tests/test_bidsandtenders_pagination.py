@@ -10,6 +10,13 @@ only the first 25 of 32 tenders (as the real site does), and a search
 endpoint that honours start/limit pagination and requires the CSRF token.
 The collector must come back with all 32.
 
+The fake search endpoint also requires an opaque session parameter that only
+the page's own JS knows, and answers requests without it with an HTML error
+page (HTTP 200) — reproducing what the live york site did to a
+hand-reconstructed request on 2026-07-13. The collector must therefore
+paginate by replaying the page's own captured request, not by building its
+own from scratch.
+
 Run directly (no pytest needed):
     python tests/test_bidsandtenders_pagination.py
 """
@@ -23,6 +30,7 @@ from urllib.parse import parse_qs, urlparse
 
 MODULE_GUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 CSRF_TOKEN = "test-csrf-token"
+SESSION_PARAM = "opaque-session-value-only-page-js-knows"
 TOTAL_TENDERS = 32
 DEFAULT_PAGE_SIZE = 25  # what the real listing page's own JS uses
 
@@ -47,6 +55,7 @@ LISTING_HTML = f"""<!doctype html>
   const params = new URLSearchParams({{
       status: 'Open', limit: '{DEFAULT_PAGE_SIZE}', start: '0',
       dir: 'ASC', from: '', to: '', sort: 'DateClosing ASC,Id',
+      session: '{SESSION_PARAM}',
       __RequestVerificationToken: '{CSRF_TOKEN}',
   }});
   fetch('/Module/Tenders/en/Tender/Search/{MODULE_GUID}?' + params.toString(), {{
@@ -89,6 +98,17 @@ class _FakePlatform(BaseHTTPRequestHandler):
 
         if param("__RequestVerificationToken") != CSRF_TOKEN:
             self.send_error(403, "missing CSRF token")
+            return
+
+        # Like the live site: a request missing session state gets an HTML
+        # error page with HTTP 200, not a JSON error.
+        if param("session") != SESSION_PARAM:
+            body = b"<html><body>An error occurred processing your request.</body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         start = int(param("start", "0"))
