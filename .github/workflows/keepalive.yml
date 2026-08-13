@@ -1,0 +1,27 @@
+name: keepalive
+on:
+  schedule:
+    - cron: '27 1 * * SUN'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      # GitHub disables scheduled workflows after 60 days of repository
+      # inactivity. Calling the "enable workflow" API resets that timer, so
+      # this job refreshes every workflow except ones a human disabled
+      # deliberately (state "disabled_manually").
+      - name: Re-enable scheduled workflows via API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --paginate \
+            --jq '.workflows[] | select(.state == "active" or .state == "disabled_inactivity") | "\(.id) \(.path)"' |
+          while read -r id path; do
+            echo "Keeping alive: ${path} (${id})"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${id}/enable"
+          done
